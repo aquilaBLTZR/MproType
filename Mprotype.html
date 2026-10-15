@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MPRO Type</title>
+  <style>
+    :root {
+      --bg-color: #27282b;
+      --main-color: #e2b714;
+      --caret-color: #e2b714;
+      --sub-color: #646669;
+      --sub-alt-color: #1f2022;
+      --text-color: #d1d0c5;
+      --error-color: #ca4754;
+      --error-extra-color: #7e2a33;
+      --font-family: 'Roboto Mono', 'Courier New', Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--sub-color);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1050px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Header & Navigation */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .logo {
+      color: var(--text-color);
+      font-weight: bold;
+      font-size: 1.8rem;
+      letter-spacing: -1px;
+    }
+
+    .logo span {
+      color: var(--main-color);
+    }
+
+    .nav-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      background: var(--sub-alt-color);
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .btn {
+      background: transparent;
+      border: none;
+      color: var(--sub-color);
+      font-family: inherit;
+      padding: 5px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: color 0.2s, background-color 0.2s;
+    }
+
+    .btn.active, .btn:hover {
+      color: var(--main-color);
+    }
+
+    /* Live Stats Banner */
+    .status-bar {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      height: 35px;
+    }
+
+    .timer-display {
+      font-size: 1.8rem;
+      color: var(--main-color);
+      font-weight: bold;
+    }
+
+    .info-label {
+      font-size: 0.9rem;
+      color: var(--sub-color);
+    }
+
+    /* Typing Test Arena */
+    .typing-box {
+      position: relative;
+      font-size: 1.55rem;
+      line-height: 2.5rem;
+      height: 7.5rem; /* Exactly 3 lines visible */
+      overflow: hidden;
+      cursor: text;
+    }
+
+    .words {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 0.6em;
+      transition: transform 0.15s ease;
+    }
+
+    .word {
+      display: inline-flex;
+    }
+
+    .letter {
+      position: relative;
+      color: var(--sub-color);
+      transition: color 0.05s ease;
+    }
+
+    .letter.correct {
+      color: var(--text-color);
+    }
+
+    .letter.incorrect {
+      color: var(--error-color);
+    }
+
+    .letter.extra {
+      color: var(--error-extra-color);
+    }
+
+    /* Animated Caret */
+    #caret {
+      position: absolute;
+      width: 2.5px;
+      height: 1.7rem;
+      background-color: var(--caret-color);
+      border-radius: 2px;
+      pointer-events: none;
+      transition: left 0.08s linear, top 0.08s linear;
+      display: none;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Restart Button */
+    .restart-btn {
+      align-self: center;
+      background: none;
+      border: none;
+      color: var(--sub-color);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin-top: 1rem;
+      transition: all 0.2s;
+    }
+
+    .restart-btn:hover {
+      color: var(--text-color);
+      background-color: var(--sub-alt-color);
+    }
+
+    /* Results Screen */
+    .results {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      padding: 2rem 0;
+    }
+
+    .stat-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-card .label {
+      color: var(--sub-color);
+      font-size: 1.1rem;
+    }
+
+    .stat-card .value {
+      color: var(--main-color);
+      font-size: 3rem;
+      font-weight: bold;
+    }
+
+    #hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <input type="text" id="hidden-input" autocomplete="off" autocapitalize="off" />
+
+  <div class="container">
+    <header>
+      <div class="logo">mpro<span>type</span></div>
+
+      <div class="nav-controls">
+        <!-- Mode Switcher -->
+        <div class="control-group">
+          <button class="btn active" id="btnVerseMode">Verse</button>
+          <button class="btn" id="btnTitleMode">Books</button>
+        </div>
+
+        <!-- Timers (only active in Books mode) -->
+        <div class="control-group" id="timeControls" style="display: none;">
+          <button class="btn active time-btn" data-time="15">15s</button>
+          <button class="btn time-btn" data-time="30">30s</button>
+          <button class="btn time-btn" data-time="60">60s</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="status-bar">
+      <div class="timer-display" id="timer">0.0s</div>
+      <div class="info-label" id="modeInfo">Ang Dating Biblia (1905)</div>
+    </div>
+
+    <div class="typing-box" id="typingBox">
+      <div id="caret"></div>
+      <div class="words" id="wordsContainer"></div>
+    </div>
+
+    <!-- Results Display -->
+    <div class="results" id="results">
+      <div class="stat-card">
+        <div class="label">wpm</div>
+        <div class="value" id="resWpm">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">accuracy</div>
+        <div class="value" id="resAcc">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">raw wpm</div>
+        <div class="value" id="resRaw">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">time</div>
+        <div class="value" id="resTime">0s</div>
+      </div>
+    </div>
+
+    <button class="restart-btn" id="restartBtn">↻ restart (Tab + Enter)</button>
+  </div>
+
+  <script>
+    /* ==========================================================
+       ANG DATING BIBLIA (1905) DATABASE
+    ========================================================== */
+    const ADB_VERSES = [
+      {
+        title: "Kawikaan 22:6",
+        text: "Sanayin mo ang bata sa daan na dapat niyang lakaran, at pagka tumanda man siya ay hindi niya hihiwalayan."
+      },
+      {
+        title: "Juan 3:16",
+        text: "Sapagka't gayon na lamang ang pagsinta ng Dios sa sanglibutan, na ibinigay niya ang kaniyang bugtong na Anak, upang ang sinomang sa kaniya'y sumampalataya ay huwag mapahamak, kundi magkaroon ng buhay na walang hanggan."
+      },
+      {
+        title: "Awit 23:1",
+        text: "Ang Panginoon ay aking pastor; hindi ako mangangailangan."
+      },
+      {
+        title: "Roma 8:28",
+        text: "At nalalaman natin na ang lahat ng mga bagay ay nagkakalakip na gumagawa sa ikabubuti ng mga nagsisiibig sa Dios, sa makatuwid baga'y niyaong mga tinawag alinsunod sa kaniyang panukala."
+      },
+      {
+        title: "Filipos 4:13",
+        text: "Lahat ng mga bagay ay aking magagawa doon sa nagpapalakas sa akin."
+      },
+      {
+        title: "Jeremias 29:11",
+        text: "Sapagka't nalalaman ko ang mga pagiisip na aking iniisip sa inyo, sabi ng Panginoon, mga pagiisip tungkol sa kapayapaan, at hindi tungkol sa kasamaan, upang bigyan kayo ng pagasa sa inyong huling wakas."
+      },
+      {
+        title: "Genesis 1:1",
+        text: "Nang pasimula ay nilikha ng Dios ang langit at ang lupa."
+      },
+      {
+        title: "Kawikaan 3:5",
+        text: "Tumiwala ka sa Panginoon ng buong puso mo; at huwag kang manalig sa iyong sariling kaunawaan."
+      },
+      {
+        title: "Mateo 6:33",
+        text: "Datapuwa't hanapin muna ninyo ang kaniyang kaharian, at ang kaniyang katuwiran; at ang lahat ng mga bagay na ito ay pawang idaragdag sa inyo."
+      },
+      {
+        title: "Hebreo 11:1",
+        text: "Ngayon, ang pananampalataya ay siyang kapanatagan sa mga bagay na inaasahan, ang katunayan ng mga bagay na hindi nakikita."
+      },
+      {
+        title: "1 Corinto 13:4",
+        text: "Ang pagibig ay mapagpahinuhod, at magandang-loob; ang pagibig ay hindi nananaghili; ang pagibig ay hindi nagmamapuri, hindi palalo."
+      },
+      {
+        title: "2 Timoteo 1:7",
+        text: "Sapagka't hindi tayo binigyan ng Dios ng espiritu ng katakutan; kundi ng kapangyarihan at ng pagibig at ng kahusayan."
+      },
+      {
+        title: "Josue 1:9",
+        text: "Hindi ba kita inutusan? Ikaw ay magpakalakas at magpakatapang; huwag kang matakot, ni manglupaypay: sapagka't ang Panginoon mong Dios ay sumasa iyo saan ka man pumaroon."
+      },
+      {
+        title: "Isaias 40:31",
+        text: "Nguni't silang nangaghihintay sa Panginoon ay mangagbabagong lakas; sila'y paiilanglang na may mga pakpak na parang mga agila; sila'y mangagsisitakbo, at hindi mangapapagod; sila'y mangagsisilakad, at hindi manganghihina."
+      },
+      {
+        title: "1 Pedro 5:7",
+        text: "Na inyong ilagak sa kaniya ang lahat ng inyong kabalisahan, sapagka't kayo'y ipinagmamalasakit niya."
+      },
+      {
+        title: "Awit 119:105",
+        text: "Ang salita mo'y tanglaw sa aking mga paa, at liwanag sa aking landas."
+      },
+      {
+        title: "Pahayag 21:4",
+        text: "At papahirin niya ang bawa't luha sa kanilang mga mata; at hindi na magkakaroon ng kamatayan; hindi na magkakaroon pa ng dalamhati, o ng panambitan man, o ng hirap pa man: ang mga unang bagay ay naparam na."
+      },
+      {
+        title: "Efeso 2:8",
+        text: "Sapagka't sa biyaya kayo'y nangaligtas sa pamamagitan ng pananampalataya; at ito'y hindi sa inyong sarili, ito'y kaloob ng Dios."
+      }
+    ];
+
+    // Canonical Tagalog Books
+    const TAGALOG_BOOKS = [
+      { name: "Genesis", ch: 50 }, { name: "Exodo", ch: 40 }, { name: "Levitico", ch: 27 },
+      { name: "Deuteronomio", ch: 34 }, { name: "Josue", ch: 24 }, { name: "Mga Hukom", ch: 21 },
+      { name: "Ruth", ch: 4 }, { name: "1 Samuel", ch: 31 }, { name: "2 Samuel", ch: 24 },
+      { name: "Awit", ch: 150 }, { name: "Kawikaan", ch: 31 }, { name: "Isaias", ch: 66 },
+      { name: "Jeremias", ch: 52 }, { name: "Mateo", ch: 28 }, { name: "Marcos", ch: 16 },
+      { name: "Lucas", ch: 24 }, { name: "Juan", ch: 21 }, { name: "Mga Gawa", ch: 28 },
+      { name: "Roma", ch: 16 }, { name: "1 Corinto", ch: 16 }, { name: "Galacia", ch: 6 },
+      { name: "Efeso", ch: 6 }, { name: "Filipos", ch: 4 }, { name: "Santiago", ch: 5 },
+      { name: "1 Pedro", ch: 5 }, { name: "Pahayag", ch: 22 }
+    ];
+
+    /* ==========================================================
+       STATE MANAGEMENT
+    ========================================================== */
+    let currentMode = "verse"; // "verse" or "title" (Books)
+    let testDuration = 15;     
+    let timeLeft = testDuration;
+    let elapsedSeconds = 0;
+    let timer = null;
+    let isRunning = false;
+    let isFinished = false;
+
+    let currentWordIndex = 0;
+    let currentLetterIndex = 0;
+    let correctChars = 0;
+    let incorrectChars = 0;
+    let totalTypedChars = 0;
+
+    // DOM Elements
+    const wordsContainer = document.getElementById("wordsContainer");
+    const caret = document.getElementById("caret");
+    const timerDisplay = document.getElementById("timer");
+    const restartBtn = document.getElementById("restartBtn");
+    const resultsContainer = document.getElementById("results");
+    const typingBox = document.getElementById("typingBox");
+    const hiddenInput = document.getElementById("hidden-input");
+    const btnVerseMode = document.getElementById("btnVerseMode");
+    const btnTitleMode = document.getElementById("btnTitleMode");
+    const timeControls = document.getElementById("timeControls");
+    const timeButtons = document.querySelectorAll(".time-btn");
+    const modeInfo = document.getElementById("modeInfo");
+
+    /* ==========================================================
+       INITIALIZATION & GENERATION
+    ========================================================== */
+    function initGame() {
+      clearInterval(timer);
+      isRunning = false;
+      isFinished = false;
+      currentWordIndex = 0;
+      currentLetterIndex = 0;
+      correctChars = 0;
+      incorrectChars = 0;
+      totalTypedChars = 0;
+      elapsedSeconds = 0;
+      timeLeft = testDuration;
+
+      resultsContainer.style.display = "none";
+      typingBox.style.display = "block";
+      wordsContainer.style.transform = `translateY(0px)`;
+
+      if (currentMode === "verse") {
+        timerDisplay.innerText = "0.0s";
+        modeInfo.innerText = "Ang Dating Biblia (1905)";
+        setupVerseTest();
+      } else {
+        timerDisplay.innerText = timeLeft;
+        modeInfo.innerText = "Books Mode";
+        setupTitleTest();
+      }
+
+      hiddenInput.focus();
+      updateCaret();
+      caret.style.display = "block";
+    }
+
+    function setupVerseTest() {
+      const item = ADB_VERSES[Math.floor(Math.random() * ADB_VERSES.length)];
+      const fullText = `${item.title} ${item.text}`;
+      const words = fullText.split(" ");
+      renderWords(words);
+    }
+
+    function setupTitleTest() {
+      let titles = [];
+      for (let i = 0; i < 70; i++) {
+        const book = TAGALOG_BOOKS[Math.floor(Math.random() * TAGALOG_BOOKS.length)];
+        const ch = Math.floor(Math.random() * book.ch) + 1;
+        const vs = Math.floor(Math.random() * 25) + 1;
+        titles.push(`${book.name} ${ch}:${vs}`);
+      }
+
+      const words = [];
+      titles.forEach(ref => {
+        ref.split(" ").forEach(t => words.push(t));
+      });
+
+      renderWords(words);
+    }
+
+    function renderWords(words) {
+      wordsContainer.innerHTML = "";
+      words.forEach(wordText => {
+        const wordDiv = document.createElement("div");
+        wordDiv.className = "word";
+        for (let char of wordText) {
+          const letterSpan = document.createElement("span");
+          letterSpan.className = "letter";
+          letterSpan.innerText = char;
+          wordDiv.appendChild(letterSpan);
+        }
+        wordsContainer.appendChild(wordDiv);
+      });
+    }
+
+    /* ==========================================================
+       TIMER & GAME LOOP
+    ========================================================== */
+    function startTimer() {
+      isRunning = true;
+      const startTime = performance.now();
+
+      timer = setInterval(() => {
+        const now = performance.now();
+        elapsedSeconds = (now - startTime) / 1000;
+
+        if (currentMode === "verse") {
+          timerDisplay.innerText = `${elapsedSeconds.toFixed(1)}s`;
+        } else {
+          timeLeft = Math.max(0, testDuration - Math.floor(elapsedSeconds));
+          timerDisplay.innerText = timeLeft;
+          if (timeLeft <= 0) {
+            endGame();
+          }
+        }
+      }, 100);
+    }
+
+    function endGame() {
+      clearInterval(timer);
+      isRunning = false;
+      isFinished = true;
+      caret.style.display = "none";
+      typingBox.style.display = "none";
+      resultsContainer.style.display = "grid";
+
+      const totalTimeSec = currentMode === "verse" ? elapsedSeconds : testDuration;
+      const minutes = Math.max(0.001, totalTimeSec / 60);
+
+      const wpm = Math.round((correctChars / 5) / minutes);
+      const rawWpm = Math.round((totalTypedChars / 5) / minutes);
+      const accuracy = totalTypedChars === 0 
+        ? 0 
+        : Math.round((correctChars / totalTypedChars) * 100);
+
+      document.getElementById("resWpm").innerText = Math.max(0, wpm);
+      document.getElementById("resAcc").innerText = `${accuracy}%`;
+      document.getElementById("resRaw").innerText = Math.max(0, rawWpm);
+      document.getElementById("resTime").innerText = `${totalTimeSec.toFixed(1)}s`;
+    }
+
+    /* ==========================================================
+       CARET POSITIONING
+    ========================================================== */
+    function updateCaret() {
+      const currentWord = wordsContainer.children[currentWordIndex];
+      if (!currentWord) return;
+
+      const currentLetter = currentWord.children[currentLetterIndex];
+      const boxRect = typingBox.getBoundingClientRect();
+
+      let targetX = 0;
+      let targetY = 0;
+
+      if (currentLetter) {
+        const letterRect = currentLetter.getBoundingClientRect();
+        targetX = letterRect.left - boxRect.left;
+        targetY = letterRect.top - boxRect.top + 6;
+      } else {
+        const lastLetter = currentWord.children[currentWord.children.length - 1];
+        const letterRect = lastLetter.getBoundingClientRect();
+        targetX = letterRect.right - boxRect.left;
+        targetY = letterRect.top - boxRect.top + 6;
+      }
+
+      caret.style.left = `${targetX}px`;
+      caret.style.top = `${targetY}px`;
+
+      const currentLine = Math.floor(targetY / 40); 
+      if (currentLine > 1) {
+        wordsContainer.style.transform = `translateY(-${(currentLine - 1) * 40}px)`;
+      }
+    }
+
+    /* ==========================================================
+       KEYBOARD INTERACTION
+    ========================================================== */
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        restartBtn.focus();
+        return;
+      }
+      if (e.key === "Escape") {
+        initGame();
+        return;
+      }
+
+      if (isFinished) return;
+
+      if (!isRunning && e.key.length === 1) {
+        startTimer();
+      }
+
+      const totalWords = wordsContainer.children.length;
+      const currentWord = wordsContainer.children[currentWordIndex];
+      const letters = currentWord.children;
+
+      // Space
+      if (e.key === " ") {
+        e.preventDefault();
+        if (currentLetterIndex === 0) return;
+
+        if (currentMode === "verse" && currentWordIndex === totalWords - 1) {
+          endGame();
+          return;
+        }
+
+        for (let i = currentLetterIndex; i < letters.length; i++) {
+          letters[i].classList.add("incorrect");
+        }
+
+        currentWordIndex++;
+        currentLetterIndex = 0;
+        updateCaret();
+        return;
+      }
+
+      // Backspace
+      if (e.key === "Backspace") {
+        if (currentLetterIndex > 0) {
+          currentLetterIndex--;
+          const letter = letters[currentLetterIndex];
+
+          if (letter.classList.contains("extra")) {
+            letter.remove();
+          } else {
+            if (letter.classList.contains("correct")) correctChars--;
+            if (letter.classList.contains("incorrect")) incorrectChars--;
+            letter.className = "letter";
+          }
+          updateCaret();
+        } else if (currentLetterIndex === 0 && currentWordIndex > 0) {
+          const prevWord = wordsContainer.children[currentWordIndex - 1];
+          const hasErrors = prevWord.querySelector(".incorrect, .extra");
+          
+          if (hasErrors) {
+            currentWordIndex--;
+            currentLetterIndex = prevWord.children.length;
+            updateCaret();
+          }
+        }
+        return;
+      }
+
+      // Character input
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        totalTypedChars++;
+
+        if (currentLetterIndex < letters.length) {
+          const targetLetter = letters[currentLetterIndex];
+          if (e.key === targetLetter.innerText) {
+            targetLetter.classList.add("correct");
+            correctChars++;
+          } else {
+            targetLetter.classList.add("incorrect");
+            incorrectChars++;
+          }
+          currentLetterIndex++;
+
+          if (currentMode === "verse" && 
+              currentWordIndex === totalWords - 1 && 
+              currentLetterIndex === letters.length) {
+            endGame();
+            return;
+          }
+        } else {
+          if (currentWord.children.length < 35) {
+            const extraSpan = document.createElement("span");
+            extraSpan.className = "letter extra";
+            extraSpan.innerText = e.key;
+            currentWord.appendChild(extraSpan);
+            currentLetterIndex++;
+            incorrectChars++;
+          }
+        }
+        updateCaret();
+      }
+    });
+
+    /* ==========================================================
+       BUTTON EVENT LISTENERS
+    ========================================================== */
+    btnVerseMode.addEventListener("click", () => {
+      currentMode = "verse";
+      btnVerseMode.classList.add("active");
+      btnTitleMode.classList.remove("active");
+      timeControls.style.display = "none";
+      initGame();
+    });
+
+    btnTitleMode.addEventListener("click", () => {
+      currentMode = "title";
+      btnTitleMode.classList.add("active");
+      btnVerseMode.classList.remove("active");
+      timeControls.style.display = "flex";
+      initGame();
+    });
+
+    timeButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        timeButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        testDuration = parseInt(btn.dataset.time);
+        initGame();
+      });
+    });
+
+    document.addEventListener("click", () => hiddenInput.focus());
+    restartBtn.addEventListener("click", initGame);
+
+    initGame();
+  </script>
+</body>
+</html>
